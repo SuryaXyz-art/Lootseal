@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/ui/public/managed
+**/.secrets
+**/fulfiller/secrets
+**/fulfiller/.env
+**/.env
+**/midnight-level-db
+**/logs
+.git
+docs

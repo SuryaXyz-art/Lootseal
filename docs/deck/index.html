@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lootseal — pitch deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #07060f; --fg: #ecebf5; --muted: #a3a1bd; --violet: #a78bfa; --gold: #f6c453;
+    --epic: #b18cff; --rare: #5cc8ff; --unc: #4fd69c; --com: #9aa7bd; --card: rgba(255,255,255,.045); --line: rgba(255,255,255,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #000; font-family: Inter, system-ui, sans-serif; color: var(--fg); }
+  .deck { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0; }
+  .slide {
+    width: 1280px; height: 720px; position: relative; overflow: hidden; border-radius: 18px;
+    background: radial-gradient(900px 500px at 85% -10%, rgba(124,58,237,.25), transparent 60%),
+                radial-gradient(700px 400px at -10% 110%, rgba(246,196,83,.08), transparent 60%), var(--bg);
+    padding: 64px 80px; display: flex; flex-direction: column;
+  }
+  .num { position: absolute; right: 40px; bottom: 28px; color: var(--muted); font-size: 14px; }
+  .brand { position: absolute; left: 40px; bottom: 28px; color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  h1 { font-size: 76px; line-height: 1.02; letter-spacing: -.03em; font-weight: 800; }
+  h2 { font-size: 46px; letter-spacing: -.02em; font-weight: 800; margin-bottom: 28px; }
+  .grad { background: linear-gradient(90deg, #c4b5fd, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: 26px; color: var(--muted); line-height: 1.45; max-width: 980px; }
+  .kicker { display: inline-block; font-size: 15px; color: #ddd6fe; border: 1px solid rgba(167,139,250,.4); background: rgba(124,58,237,.15); padding: 6px 14px; border-radius: 999px; margin-bottom: 26px; }
+  .grid { display: grid; gap: 20px; }
+  .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } .g4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px; }
+  .card h3 { font-size: 22px; margin-bottom: 10px; }
+  .card p, .card li { font-size: 17px; color: var(--muted); line-height: 1.5; }
+  .card ul { padding-left: 20px; }
+  .big { font-size: 64px; font-weight: 800; letter-spacing: -.03em; }
+  .tag { font-size: 13px; padding: 3px 10px; border-radius: 999px; border: 1px solid; display: inline-block; }
+  .flow { display: flex; align-items: center; gap: 14px; font-size: 18px; }
+  .flow .step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; flex: 1; }
+  .flow .step b { display: block; font-size: 19px; margin-bottom: 6px; color: var(--fg); }
+  .flow .step span { color: var(--muted); font-size: 15px; line-height: 1.4; }
+  .arrow { color: var(--violet); font-size: 26px; }
+  code, .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px; color: #ddd6fe; }
+  table { width: 100%; border-collapse: collapse; font-size: 18px; }
+  td, th { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: 15px; }
+  .bar { height: 12px; border-radius: 999px; }
+  .center { margin: auto 0; }
+  @media print { html, body { background: var(--bg); } .deck { gap: 0; padding: 0; } .slide { border-radius: 0; page-break-after: always; } @page { size: 1280px 720px; margin: 0; } }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 1 -->
+<section class="slide">
+  <div class="center">
+    <span class="kicker">Midnight Buildathon · zero-knowledge fairness</span>
+    <h1>Lootseal</h1>
+    <h1 class="grad" style="font-size:58px;margin-top:10px">Prove the odds were real.<br/>Spoil no surprise.</h1>
+    <p class="lead" style="margin-top:28px">Loot boxes and mystery mints where the drop table is proven fair, the draw can't be rigged, nothing can be sniped, and your item is delivered to you — encrypted — inside the same proof.</p>
+  </div>
+  <div class="brand">Built on Midnight · Compact · Midnight.js · Lace</div><div class="num">1</div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <h2>"1% legendary." Says who?</h2>
+  <div class="grid g3">
+    <div class="card"><h3>Unverifiable odds</h3><p>Games and NFT mints publish rates nobody can check. Players widely suspect they're shaded.</p></div>
+    <div class="card"><h3>Insider sniping</h3><p>Whoever can see the table — staff, bots watching a public reveal — grabs the rares first. Late buyers get worse odds than advertised.</p></div>
+    <div class="card"><h3>Regulation is closing in</h3><p>China and South Korea mandate probability disclosure; Apple and Google require it; Belgium treats paid loot boxes as gambling.</p></div>
+  </div>
+  <p class="lead" style="margin-top:36px">A multi-billion-dollar industry runs on <b style="color:var(--fg)">trust me</b>.</p>
+  <div class="num">2</div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <h2>Why transparency alone fails</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Publish the whole table?</h3><ul><li>Spoils the surprise — players know exactly what's left.</li><li>Hands bots a map: buy only when the legendaries remain.</li><li>"The rares are gone, stop buying" games.</li></ul></div>
+    <div class="card"><h3>Publish nothing?</h3><ul><li>Nothing to check. Odds are a marketing claim.</li><li>Commit-reveal after the sale proves totals, but not that each draw was fair or that nobody peeked.</li></ul></div>
+  </div>
+  <p class="lead" style="margin-top:36px">We need <span class="grad" style="font-weight:700">selective disclosure</span>: prove the odds, hide the table. That's exactly what Midnight is for.</p>
+  <div class="num">3</div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <h2>How Lootseal works</h2>
+  <div class="flow">
+    <div class="step"><b>1 · Commit</b><span>Publisher commits the hidden table and proves in ZK that it matches the advertised odds. Bond posted.</span></div><div class="arrow">→</div>
+    <div class="step"><b>2 · Buy</b><span>Buyer pays NIGHT and picks their own seed. The box is sealed in the queue.</span></div><div class="arrow">→</div>
+    <div class="step"><b>3 · Open</b><span>A circuit draws from the hidden remaining supply with the committed seed + buyer seed, and encrypts the item to the buyer.</span></div><div class="arrow">→</div>
+    <div class="step"><b>4 · Hold &amp; trade</b><span>Prove "top 1%" without revealing the item. Gift privately. Sell through escrow.</span></div><div class="arrow">→</div>
+    <div class="step"><b>5 · Audit</b><span>After the sale the table is opened and anyone re-checks it on chain.</span></div>
+  </div>
+  <div class="grid g3" style="margin-top:34px">
+    <div class="card"><h3>Late box? Refunded.</h3><p>Boxes open FIFO within a window — or the buyer claims price + penalty from the bond.</p></div>
+    <div class="card"><h3>Nothing to snipe</h3><p>Remaining supply is a salted commitment, re-committed every open. Every box carries exactly the advertised odds.</p></div>
+    <div class="card"><h3>Private forever</h3><p>The master seed is never revealed, so nobody can later publish who got what.</p></div>
+  </div>
+  <div class="num">4</div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <h2>The guarantees, in circuits</h2>
+  <table>
+    <tr><th>Guarantee</th><th>Circuit</th><th>Proven in zero knowledge</th></tr>
+    <tr><td>Odds are real</td><td><code>commitTable</code></td><td>Σ hidden counts per tier = advertised tier totals</td></tr>
+    <tr><td>Draw can't be steered</td><td><code>openBox</code></td><td>seed opens its commitment · roll = H(seed, buyerSeed, k) · checked reduction &amp; pick</td></tr>
+    <tr><td>No withholding</td><td><code>openBox</code> · <code>claimRefund</code></td><td>strict FIFO · deadline · bonded penalty · drop marked DEFAULTED</td></tr>
+    <tr><td>Only the buyer learns the item</td><td><code>openBox</code></td><td>Jubjub Diffie-Hellman ciphertext bound to the item commitment</td></tr>
+    <tr><td>Rarity without disclosure</td><td><code>proveRarityTier</code></td><td>owner key opens the commitment · tier ≤ claim</td></tr>
+    <tr><td>Fair exchange</td><td><code>settleListing</code></td><td>delivers to the escrowed buyer keys <i>and</i> pays the seller, atomically</td></tr>
+    <tr><td>Public audit</td><td><code>finalReveal</code> · <code>verifyOdds</code></td><td>commitments opened · re-checked on chain by anyone</td></tr>
+  </table>
+  <div class="num">5</div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <h2>The product</h2>
+  <div class="grid g3">
+    <div class="card"><h3>Drop page</h3><p>Proven odds, the catalog, a live queue, and a box that shakes, cracks and flips to your item when the proof lands.</p></div>
+    <div class="card"><h3>Vault</h3><p>Your items, decrypted locally from encrypted deliveries. Prove rarity, gift with a Lootseal ID, list on the bazaar, back up your keys.</p></div>
+    <div class="card"><h3>Bazaar</h3><p>Buy sealed items whose rarity is proven in ZK. Escrowed until the seller delivers — or refunded.</p></div>
+    <div class="card"><h3>Studio</h3><p>Design a drop with a live odds preview and launch it in guided steps. Run the queue, claim proceeds, reveal.</p></div>
+    <div class="card"><h3>Audit &amp; Verify</h3><p>Every guarantee checked from public data. Rarity badges anyone can verify — no wallet needed.</p></div>
+    <div class="card"><h3>Fulfiller</h3><p>Opens boxes automatically within a block or two. Stateless: replays the hidden supply from chain data.</p></div>
+  </div>
+  <div class="num">6</div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <h2>Built on Midnight's dual ledger</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Public ledger</h3><ul><li>catalog, tier odds, price, deadlines</li><li>table / supply / seed commitments</li><li>request queue · item commitments · ciphertexts</li><li>badges · listings · NIGHT escrow &amp; bond</li></ul></div>
+    <div class="card"><h3>Private state (provers only)</h3><ul><li>per-item counts · remaining supply · master seed</li><li>owner &amp; encryption keys · decrypted items</li><li>encrypted in the browser (IndexedDB, passphrase)</li></ul></div>
+    <div class="card"><h3>Witness-checked work</h3><p>Roll reduction and item pick are computed off chain and asserted in circuit — a lying witness can only fail. Secret indices never touch the ledger: vectors are read whole and selected with <code>fold</code>/<code>map</code>.</p></div>
+    <div class="card"><h3>Engineering</h3><p>15 + 1 provable circuits, 15 pure circuits shared with the browser. Staged deploy installs verifier keys via signed maintenance updates to fit block limits.</p></div>
+  </div>
+  <div class="num">7</div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <h2>Tested like it matters</h2>
+  <div class="grid g4">
+    <div class="card"><div class="big">68</div><p>simulator tests — every circuit, a rejection test for every reachable assert, lying witnesses</p></div>
+    <div class="card"><div class="big">14</div><p>devnet end-to-end tests with real proofs, NIGHT, refunds and escrow</p></div>
+    <div class="card"><div class="big">72</div><p>web-app unit tests</p></div>
+    <div class="card"><div class="big">χ²</div><p>legendary equally likely at every box position (150 drops); a sold-out drop delivers exactly the table</p></div>
+  </div>
+  <div class="card" style="margin-top:22px"><h3>Privacy is tested, not claimed</h3><p><code>assertNotInPublicState</code> after every phase — launch, sales, opens, badges, transfers, bazaar, reveal: no seed, salt, key, shared secret or item opening ever reaches public state.</p></div>
+  <div class="num">8</div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <h2>Honest threat model</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Holds against the publisher</h3><ul><li>odds proven before sale · reveal must match</li><li>can't pick, skip or reorder boxes</li><li>late boxes refunded from the bond</li></ul></div>
+    <div class="card"><h3>Holds against everyone else</h3><ul><li>no peeking at the remainder — nothing to snipe</li><li>items and holders stay private</li><li>badges and bazaar sales are sound</li></ul></div>
+    <div class="card" style="grid-column: span 2"><h3>Residual we state openly</h3><p>A publisher buying its own boxes through other wallets knows the seed and can bias <i>its own</i> pulls (totals still hold, each try costs a box). Fix on the roadmap: <b style="color:var(--fg)">threshold seed keepers</b> — an independent auditor co-commits the seed, and every open needs both.</p></div>
+  </div>
+  <div class="num">9</div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <h2>Market &amp; roadmap</h2>
+  <div class="grid g3">
+    <div class="card"><h3>Who pays</h3><p>Gacha &amp; mobile studios facing disclosure law · web3 games · NFT launchpads · trading-card platforms.</p></div>
+    <div class="card"><h3>Model</h3><p>1–2% per opened box or a flat fee per drop · "Lootseal Verified" badge and audit page · self-hosted fulfiller tier.</p></div>
+    <div class="card"><h3>Adoption</h3><p>TypeScript SDK + fulfiller today → Unity / Godot plugins → launchpad integrations.</p></div>
+  </div>
+  <div class="card" style="margin-top:22px"><h3>Next</h3><p>Threshold seed keepers · shielded purchases · provable pity timers · multi-box packs in one proof · anonymous holder badges (Merkle + nullifiers) · cross-drop publisher reputation.</p></div>
+  <p class="lead" style="margin-top:26px"><span class="grad" style="font-weight:700">Lootseal</span> — the fairness layer for every surprise.</p>
+  <div class="num">10</div>
+</section>
+
+</div>
+</body>
+</html>

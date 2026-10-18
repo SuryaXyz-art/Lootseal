@@ -1,0 +1,666 @@
+// This file is part of Lootseal.
+// SPDX-License-Identifier: Apache-2.0
+// Licensed under the Apache License, Version 2.0 (the "License");
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Lootseal drop: a loot box / mystery mint with odds anyone can verify.
+//
+// One deployment = one drop. The publisher commits a hidden drop table (how
+// many of each of up to 16 item types exist) and proves, in zero knowledge,
+// that its per-tier totals equal the advertised `tierTotals`. Each box is
+// drawn from the hidden remaining supply with randomness nobody controls:
+// a master seed committed before the sale (never revealed) and a seed the
+// buyer picks when buying. The drawn item is written as a commitment, and
+// delivered to the buyer encrypted (Jubjub Diffie-Hellman) inside the same
+// proof. Holders can prove "my item is at least this rare" without saying
+// which item it is, give items away, and sell them on an escrowed bazaar.
+// After the sale the publisher opens the table so anyone can audit it.
+//
+// Tiers: 0 Legendary, 1 Epic, 2 Rare, 3 Uncommon, 4 Common. "maxTier = 0"
+// therefore means "legendary", "maxTier = 1" means "epic or better", etc.
+//
+// PRIVACY RULE used throughout: a ledger value is never read at an index that
+// depends on a secret (the index would land in the public transcript). The
+// catalog and supply vectors are always read whole and selected in-circuit.
+
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export enum DropState { SETUP, TABLE_COMMITTED, LIVE, DEFAULTED, REVEALED }
+export enum RequestStatus { PENDING, OPENED, REFUNDED }
+export enum ListingStatus { OPEN, PENDING, SOLD, CANCELLED }
+
+export struct DropParams {
+  title: Bytes<32>,
+  names: Vector<16, Bytes<32>>,
+  tiers: Vector<16, Uint<8>>,
+  tierTotals: Vector<5, Uint<32>>,
+  totalSupply: Uint<32>,
+  price: Uint<128>,
+  bondAmount: Uint<128>,
+  penaltyPerBox: Uint<128>,
+  saleEnd: Uint<64>,
+  fulfillWindow: Uint<64>,
+  settleWindow: Uint<64>,
+  payout: UserAddress,
+}
+
+export struct Request {
+  buyerSeed: Bytes<32>,
+  buyerEncKey: JubjubPoint,
+  ownerPk: Bytes<32>,
+  refundTo: UserAddress,
+  requestedAt: Uint<64>,
+  status: RequestStatus,
+}
+
+// The current owner's encrypted opening of an item. `ephemeral` is the
+// sender's DH public point; `cipher` = pack(type, serial) + mask(shared).
+export struct Delivery {
+  ephemeral: JubjubPoint,
+  cipher: Field,
+  version: Uint<32>,
+}
+
+export struct Badge {
+  itemId: Bytes<32>,
+  maxTier: Uint<8>,
+  context: Bytes<32>,
+  version: Uint<32>,
+}
+
+export struct Listing {
+  price: Uint<128>,
+  maxTier: Uint<8>,
+  sellerPayout: UserAddress,
+  version: Uint<32>,
+  status: ListingStatus,
+  buyerOwnerPk: Bytes<32>,
+  buyerEncKey: JubjubPoint,
+  buyerRefund: UserAddress,
+  deadline: Uint<64>,
+}
+
+export struct TableOpening { counts: Vector<16, Uint<32>>, salt: Bytes<32> }
+export struct SupplyOpening { remaining: Vector<16, Uint<32>>, minted: Vector<16, Uint<32>>, salt: Bytes<32> }
+export struct SeedOpening { seed: Bytes<32>, salt: Bytes<32> }
+export struct ItemOpening { itemType: Uint<8>, serial: Uint<32>, salt: Bytes<32> }
+
+// ─── Public ledger ──────────────────────────────────────────────────────────
+
+export sealed ledger title: Bytes<32>;
+export sealed ledger publisherPk: Bytes<32>;
+export sealed ledger publisherPayout: UserAddress;
+export sealed ledger publisherEncKey: JubjubPoint;
+export sealed ledger catalogNames: Vector<16, Bytes<32>>;
+export sealed ledger catalogTiers: Vector<16, Uint<8>>;
+export sealed ledger tierTotals: Vector<5, Uint<32>>;
+export sealed ledger totalSupply: Uint<32>;
+export sealed ledger price: Uint<128>;
+export sealed ledger bondAmount: Uint<128>;
+export sealed ledger penaltyPerBox: Uint<128>;
+export sealed ledger saleEnd: Uint<64>;
+export sealed ledger fulfillWindow: Uint<64>;
+export sealed ledger settleWindow: Uint<64>;
+
+export ledger state: DropState;
+export ledger tableCommit: Bytes<32>;
+export ledger remainingCommit: Bytes<32>;
+export ledger seedCommit: Bytes<32>;
+export ledger requestCount: Uint<32>;
+export ledger openedCount: Uint<32>;
+export ledger requests: Map<Uint<32>, Request>;
+export ledger items: Map<Bytes<32>, Bytes<32>>;
+export ledger deliveries: Map<Bytes<32>, Delivery>;
+export ledger badges: Map<Bytes<32>, Badge>;
+export ledger listings: Map<Bytes<32>, Listing>;
+export ledger publisherClaimable: Uint<128>;
+export ledger bondRemaining: Uint<128>;
+export ledger refundedCount: Uint<32>;
+export ledger revealedInitial: Vector<16, Uint<32>>;
+export ledger revealedRemaining: Vector<16, Uint<32>>;
+export ledger oddsVerified: Boolean;
+
+// ─── Witnesses (contract/witnesses.ts) ──────────────────────────────────────
+
+// Publisher
+witness publisherSecret(): Bytes<32>;
+witness publisherEncSecret(): Field;
+witness tableOpening(): TableOpening;
+witness supplyOpening(): SupplyOpening;
+witness seedOpening(): SeedOpening;
+witness saveSupply(next: SupplyOpening): [];
+witness divMod64(a: Uint<64>, d: Uint<32>): [Uint<64>, Uint<32>];
+witness pickType(roll: Uint<32>, remaining: Vector<16, Uint<32>>): Uint<8>;
+// Holder (buyer, owner, bazaar buyer)
+witness holderSecret(): Bytes<32>;
+witness holderEncSecret(): Field;
+witness itemOpening(itemId: Bytes<32>): ItemOpening;
+witness ephemeralSecret(): Field;
+
+// ─── Constructor ────────────────────────────────────────────────────────────
+
+constructor(p: DropParams) {
+  const params = disclose(p);
+  const sum = fold((acc: Uint<32>, x: Uint<32>): Uint<32> => (acc + x) as Uint<32>, 0 as Uint<32>, params.tierTotals);
+  assert(sum == params.totalSupply, "Tier totals must add up to the total supply");
+  assert(params.totalSupply > 0, "Total supply must be positive");
+  const tiersOk = fold((acc: Boolean, t: Uint<8>): Boolean => acc && t < 5, true, params.tiers);
+  assert(tiersOk, "Every catalog tier must be between 0 and 4");
+  assert(params.penaltyPerBox <= params.bondAmount, "Penalty per box cannot exceed the bond");
+
+  title = params.title;
+  publisherPk = disclose(publisherKey(publisherSecret()));
+  publisherPayout = params.payout;
+  publisherEncKey = disclose(ecMulGenerator(publisherEncSecret()));
+  catalogNames = params.names;
+  catalogTiers = params.tiers;
+  tierTotals = params.tierTotals;
+  totalSupply = params.totalSupply;
+  price = params.price;
+  bondAmount = params.bondAmount;
+  penaltyPerBox = params.penaltyPerBox;
+  saleEnd = params.saleEnd;
+  fulfillWindow = params.fulfillWindow;
+  settleWindow = params.settleWindow;
+  state = DropState.SETUP;
+  requestCount = 0;
+  openedCount = 0;
+  publisherClaimable = 0;
+  bondRemaining = 0;
+  refundedCount = 0;
+  oddsVerified = false;
+}
+
+// ─── Publisher: launch ──────────────────────────────────────────────────────
+
+// Commits the hidden drop table, proves it matches the advertised odds, and
+// posts the publisher's bond.
+export circuit commitTable(): [] {
+  assert(state == DropState.SETUP, "The table is already committed");
+  assertPublisher();
+  const t = tableOpening();
+  const tiers = catalogTiers;
+  const names = catalogNames;
+  const totals = tierTotals;
+  for (const tier of 0..5) {
+    const s = fold((acc: Uint<32>, c: Uint<32>, ti: Uint<8>): Uint<32> =>
+                     (ti == tier ? acc + c : acc) as Uint<32>,
+                   0 as Uint<32>, t.counts, tiers);
+    assert(s == totals[tier], "Hidden table does not match the advertised odds");
+  }
+  const emptyHasSupply = fold((acc: Boolean, c: Uint<32>, n: Bytes<32>): Boolean =>
+                                acc || (n == default<Bytes<32>> && c != 0),
+                              false, t.counts, names);
+  assert(!emptyHasSupply, "An empty catalog slot cannot have supply");
+
+  tableCommit = disclose(tableCommitOf(t));
+  const first = SupplyOpening {
+    remaining: t.counts,
+    minted: zeros16(),
+    salt: resaltOf(t.salt),
+  };
+  remainingCommit = disclose(supplyCommitOf(first));
+  saveSupply(first);
+
+  receiveUnshielded(nativeToken(), bondAmount);
+  bondRemaining = bondAmount;
+  state = DropState.TABLE_COMMITTED;
+}
+
+// Commits the master seed that, together with each buyer's seed, decides
+// every draw. It is never revealed.
+export circuit commitSeed(): [] {
+  assert(state == DropState.TABLE_COMMITTED, "Commit the table first");
+  assertPublisher();
+  seedCommit = disclose(seedCommitOf(seedOpening()));
+  state = DropState.LIVE;
+}
+
+// ─── Buyer: request a box ───────────────────────────────────────────────────
+
+export circuit requestBox(buyerSeed: Bytes<32>, refundTo: UserAddress, now: Uint<64>): [] {
+  assert(state == DropState.LIVE, "This drop is not live");
+  assert(requestCount < totalSupply, "Sold out");
+  assert(blockTimeLt(saleEnd), "The sale has ended");
+  const t = disclose(now);
+  assertNow(t);
+  const ownerPk = disclose(holderKey(kernel.self().bytes, holderSecret()));
+  const encKey = disclose(ecMulGenerator(holderEncSecret()));
+
+  receiveUnshielded(nativeToken(), price);
+  requests.insert(requestCount, Request {
+    buyerSeed: disclose(buyerSeed),
+    buyerEncKey: encKey,
+    ownerPk: ownerPk,
+    refundTo: disclose(refundTo),
+    requestedAt: t,
+    status: RequestStatus.PENDING,
+  });
+  requestCount = (requestCount + 1) as Uint<32>;
+}
+
+// ─── Publisher: open the next box (strict FIFO) ─────────────────────────────
+
+export circuit openBox(): [] {
+  assert(state == DropState.LIVE, "This drop is not live");
+  assert(openedCount < requestCount, "No boxes are waiting to be opened");
+  assertPublisher();
+
+  const idx = openedCount;
+  const req = requests.lookup(idx);
+
+  const so = seedOpening();
+  assert(seedCommitOf(so) == seedCommit, "Seed does not match its commitment");
+  const sup = supplyOpening();
+  assert(supplyCommitOf(sup) == remainingCommit, "Supply does not match its commitment");
+
+  // Randomness: committed master seed + buyer seed + request index.
+  const lo = rollOf(so.seed, req.buyerSeed, idx);
+  const left = (totalSupply - idx) as Uint<32>;
+  const [q, roll] = divMod64(lo, left);
+  assert(roll < left && q * left + roll == lo, "Invalid roll reduction");
+
+  // The drawn type is the unique t with before(t) <= roll < before(t) + remaining[t].
+  const t = pickType(roll, sup.remaining);
+  assert(t < 16, "Invalid item type");
+  const before = fold((acc: Uint<32>, c: Uint<32>, i: Uint<8>): Uint<32> =>
+                        (i < t ? acc + c : acc) as Uint<32>,
+                      0 as Uint<32>, sup.remaining, idx16());
+  const count = sel32(sup.remaining, t);
+  assert(before <= roll && roll < before + count, "Invalid item pick");
+
+  const next = SupplyOpening {
+    remaining: map((c: Uint<32>, i: Uint<8>): Uint<32> => (c - ((i == t) as Uint<1>)) as Uint<32>,
+                   sup.remaining, idx16()),
+    minted: map((m: Uint<32>, i: Uint<8>): Uint<32> => (m + ((i == t) as Uint<1>)) as Uint<32>,
+                sup.minted, idx16()),
+    salt: resaltOf(sup.salt),
+  };
+  remainingCommit = disclose(supplyCommitOf(next));
+  saveSupply(next);
+
+  // Encrypted delivery to the buyer's key.
+  const y = publisherEncSecret();
+  const pub = publisherEncKey;
+  assert(pointEq(ecMulGenerator(y), pub), "Wrong publisher encryption key");
+  const shared = ecMul(req.buyerEncKey, y);
+  const itemId = itemIdOf(idx);
+  const opening = ItemOpening {
+    itemType: t,
+    serial: (sel32(sup.minted, t) + 1) as Uint<32>,
+    salt: itemSalt(shared, itemId, 0),
+  };
+  items.insert(itemId, disclose(itemCommit(opening, req.ownerPk)));
+  deliveries.insert(itemId, Delivery {
+    ephemeral: pub,
+    cipher: disclose(packOpening(opening) + deliveryMask(shared, itemId, 0)),
+    version: 0,
+  });
+
+  requests.insert(idx, Request {
+    buyerSeed: req.buyerSeed,
+    buyerEncKey: req.buyerEncKey,
+    ownerPk: req.ownerPk,
+    refundTo: req.refundTo,
+    requestedAt: req.requestedAt,
+    status: RequestStatus.OPENED,
+  });
+  publisherClaimable = (publisherClaimable + price) as Uint<128>;
+  openedCount = (idx + 1) as Uint<32>;
+}
+
+// ─── Anyone: refund a box the publisher failed to open in time ──────────────
+
+export circuit claimRefund(requestId: Uint<32>): [] {
+  const id = disclose(requestId);
+  assert(requests.member(id), "Unknown request");
+  const req = requests.lookup(id);
+  assert(req.status == RequestStatus.PENDING, "This box is not waiting to be opened");
+  assert(blockTimeGte((req.requestedAt + fulfillWindow) as Uint<64>), "The fulfillment window is still open");
+
+  const bond = bondRemaining;
+  const pen = penaltyPerBox;
+  const penalty = pen < bond ? pen : bond;
+  sendUnshielded(nativeToken(), (price + penalty) as Uint<128>,
+                 right<ContractAddress, UserAddress>(req.refundTo));
+  bondRemaining = (bond - penalty) as Uint<128>;
+  requests.insert(id, Request {
+    buyerSeed: req.buyerSeed,
+    buyerEncKey: req.buyerEncKey,
+    ownerPk: req.ownerPk,
+    refundTo: req.refundTo,
+    requestedAt: req.requestedAt,
+    status: RequestStatus.REFUNDED,
+  });
+  refundedCount = (refundedCount + 1) as Uint<32>;
+  state = DropState.DEFAULTED;
+}
+
+// ─── Holder: rarity badges and transfers ────────────────────────────────────
+
+// Proves the caller owns `itemId` and its tier is <= maxTier, without
+// revealing the item type or serial.
+export circuit proveRarityTier(itemId: Bytes<32>, maxTier: Uint<8>, context: Bytes<32>): [] {
+  const id = disclose(itemId);
+  const mt = disclose(maxTier);
+  const op = assertOwner(id);
+  assertTierAtMost(op, mt);
+  const ver = deliveries.lookup(id).version;
+  const ctx = disclose(context);
+  badges.insert(badgeIdOf(id, ctx, ver), Badge { itemId: id, maxTier: mt, context: ctx, version: ver });
+}
+
+export circuit transferItem(itemId: Bytes<32>, toOwnerPk: Bytes<32>, toEncKey: JubjubPoint): [] {
+  const id = disclose(itemId);
+  const op = assertOwner(id);
+  assert(!hasPendingSale(id), "This item has a pending bazaar sale");
+  moveItem(id, op, disclose(toOwnerPk), disclose(toEncKey));
+}
+
+// ─── Bazaar: escrowed sale with a proven rarity bound ──────────────────────
+
+export circuit listItem(itemId: Bytes<32>, askPrice: Uint<128>, maxTier: Uint<8>, payout: UserAddress): [] {
+  const id = disclose(itemId);
+  const mt = disclose(maxTier);
+  const op = assertOwner(id);
+  assertTierAtMost(op, mt);
+  const ver = deliveries.lookup(id).version;
+  if (listings.member(id)) {
+    const l = listings.lookup(id);
+    assert(l.version != ver || l.status == ListingStatus.SOLD || l.status == ListingStatus.CANCELLED,
+           "This item is already listed");
+  }
+  const ask = disclose(askPrice);
+  assert(ask > 0, "Price must be positive");
+  listings.insert(id, Listing {
+    price: ask,
+    maxTier: mt,
+    sellerPayout: disclose(payout),
+    version: ver,
+    status: ListingStatus.OPEN,
+    buyerOwnerPk: default<Bytes<32>>,
+    buyerEncKey: default<JubjubPoint>,
+    buyerRefund: default<UserAddress>,
+    deadline: 0,
+  });
+}
+
+export circuit buyListing(itemId: Bytes<32>, refundTo: UserAddress, now: Uint<64>): [] {
+  const id = disclose(itemId);
+  assert(listings.member(id), "This item is not listed");
+  const l = listings.lookup(id);
+  assert(l.status == ListingStatus.OPEN, "This listing is not open");
+  assert(l.version == deliveries.lookup(id).version, "This listing is stale");
+  const t = disclose(now);
+  assertNow(t);
+  const ownerPk = disclose(holderKey(kernel.self().bytes, holderSecret()));
+  const encKey = disclose(ecMulGenerator(holderEncSecret()));
+  receiveUnshielded(nativeToken(), l.price);
+  listings.insert(id, Listing {
+    price: l.price,
+    maxTier: l.maxTier,
+    sellerPayout: l.sellerPayout,
+    version: l.version,
+    status: ListingStatus.PENDING,
+    buyerOwnerPk: ownerPk,
+    buyerEncKey: encKey,
+    buyerRefund: disclose(refundTo),
+    deadline: (t + settleWindow) as Uint<64>,
+  });
+}
+
+// The seller delivers the item to the escrowed buyer keys (enforced here)
+// and is paid in the same transaction.
+export circuit settleListing(itemId: Bytes<32>): [] {
+  const id = disclose(itemId);
+  assert(listings.member(id), "This item is not listed");
+  const l = listings.lookup(id);
+  assert(l.status == ListingStatus.PENDING, "This listing has no buyer waiting");
+  const op = assertOwner(id);
+  moveItem(id, op, l.buyerOwnerPk, l.buyerEncKey);
+  sendUnshielded(nativeToken(), l.price, right<ContractAddress, UserAddress>(l.sellerPayout));
+  listings.insert(id, Listing {
+    price: l.price, maxTier: l.maxTier, sellerPayout: l.sellerPayout, version: l.version,
+    status: ListingStatus.SOLD, buyerOwnerPk: l.buyerOwnerPk, buyerEncKey: l.buyerEncKey,
+    buyerRefund: l.buyerRefund, deadline: l.deadline,
+  });
+}
+
+export circuit cancelListing(itemId: Bytes<32>): [] {
+  const id = disclose(itemId);
+  assert(listings.member(id), "This item is not listed");
+  const l = listings.lookup(id);
+  assert(l.status == ListingStatus.OPEN, "Only an open listing can be cancelled");
+  assertOwner(id);
+  listings.insert(id, Listing {
+    price: l.price, maxTier: l.maxTier, sellerPayout: l.sellerPayout, version: l.version,
+    status: ListingStatus.CANCELLED, buyerOwnerPk: l.buyerOwnerPk, buyerEncKey: l.buyerEncKey,
+    buyerRefund: l.buyerRefund, deadline: l.deadline,
+  });
+}
+
+// Anyone: return the buyer's escrow if the seller did not deliver in time.
+export circuit refundListing(itemId: Bytes<32>): [] {
+  const id = disclose(itemId);
+  assert(listings.member(id), "This item is not listed");
+  const l = listings.lookup(id);
+  assert(l.status == ListingStatus.PENDING, "This listing has no buyer waiting");
+  assert(blockTimeGte(l.deadline), "The seller still has time to deliver");
+  sendUnshielded(nativeToken(), l.price, right<ContractAddress, UserAddress>(l.buyerRefund));
+  listings.insert(id, Listing {
+    price: l.price, maxTier: l.maxTier, sellerPayout: l.sellerPayout, version: l.version,
+    status: ListingStatus.CANCELLED, buyerOwnerPk: l.buyerOwnerPk, buyerEncKey: l.buyerEncKey,
+    buyerRefund: l.buyerRefund, deadline: l.deadline,
+  });
+}
+
+// ─── Publisher: proceeds and final reveal ───────────────────────────────────
+
+export circuit claimProceeds(): [] {
+  assertPublisher();
+  const amount = publisherClaimable;
+  assert(amount > 0, "Nothing to claim");
+  sendUnshielded(nativeToken(), amount, right<ContractAddress, UserAddress>(publisherPayout));
+  publisherClaimable = 0;
+}
+
+// Opens the initial table and the unsold remainder so anyone can audit the
+// drop. The master seed stays secret, so individual draws stay private.
+export circuit finalReveal(): [] {
+  assert(state == DropState.LIVE, "Only a live drop can be revealed");
+  assertPublisher();
+  assert(blockTimeGte(saleEnd) || requestCount == totalSupply, "The sale is still running");
+  assert(openedCount == requestCount, "Open every requested box first");
+  const t = tableOpening();
+  assert(tableCommitOf(t) == tableCommit, "Table does not match its commitment");
+  const sup = supplyOpening();
+  assert(supplyCommitOf(sup) == remainingCommit, "Supply does not match its commitment");
+  revealedInitial = disclose(t.counts);
+  revealedRemaining = disclose(sup.remaining);
+  const bond = bondRemaining;
+  if (bond > 0) {
+    sendUnshielded(nativeToken(), bond, right<ContractAddress, UserAddress>(publisherPayout));
+  }
+  bondRemaining = 0;
+  state = DropState.REVEALED;
+}
+
+// Anyone: re-check the revealed table on chain and record the result. The
+// checks cannot fail for a table that passed commitTable (finalReveal only
+// accepts openings of the committed values), so the outcome is recorded as a
+// Boolean audit result rather than asserted.
+export circuit verifyOdds(): [] {
+  assert(state == DropState.REVEALED, "The table has not been revealed yet");
+  const initial = revealedInitial;
+  const rest = revealedRemaining;
+  const tiers = catalogTiers;
+  const totals = tierTotals;
+  const tierSums = map((tier: Uint<8>): Uint<32> =>
+                         fold((acc: Uint<32>, c: Uint<32>, ti: Uint<8>): Uint<32> =>
+                                (ti == tier ? acc + c : acc) as Uint<32>,
+                              0 as Uint<32>, initial, tiers),
+                       [0, 1, 2, 3, 4]);
+  const oddsMatch = fold((acc: Boolean, a: Uint<32>, b: Uint<32>): Boolean => acc && a == b,
+                         true, tierSums, totals);
+  const consistent = fold((acc: Boolean, a: Uint<32>, b: Uint<32>): Boolean => acc && a >= b,
+                          true, initial, rest);
+  const opened = fold((acc: Uint<32>, a: Uint<32>, b: Uint<32>): Uint<32> =>
+                        (a >= b ? acc + (a - b) : acc) as Uint<32>,
+                      0 as Uint<32>, initial, rest);
+  oddsVerified = oddsMatch && consistent && opened == openedCount;
+}
+
+// ─── Internal helpers ───────────────────────────────────────────────────────
+
+circuit assertPublisher(): [] {
+  assert(publisherKey(publisherSecret()) == publisherPk, "Only the publisher can do this");
+}
+
+// Allows ±5 minutes between the caller's clock and block time.
+circuit assertNow(now: Uint<64>): [] {
+  assert(now >= 300, "Invalid timestamp");
+  assert(blockTimeGte((now - 300) as Uint<64>) && blockTimeLt((now + 300) as Uint<64>),
+         "Your clock is too far from block time");
+}
+
+circuit assertOwner(id: Bytes<32>): ItemOpening {
+  assert(items.member(id), "Unknown item");
+  const op = itemOpening(id);
+  const owner = holderKey(kernel.self().bytes, holderSecret());
+  assert(itemCommit(op, owner) == items.lookup(id), "You do not own this item");
+  return op;
+}
+
+circuit assertTierAtMost(op: ItemOpening, maxTier: Uint<8>): [] {
+  const tier = sel8(catalogTiers, op.itemType);
+  assert(tier <= maxTier, "This item is not that rare");
+}
+
+circuit hasPendingSale(id: Bytes<32>): Boolean {
+  if (listings.member(id)) {
+    return listings.lookup(id).status == ListingStatus.PENDING;
+  }
+  return false;
+}
+
+// Re-encrypts the item to a new owner under a fresh ephemeral key and bumps
+// its version (which invalidates older badges and listings).
+circuit moveItem(id: Bytes<32>, op: ItemOpening, toOwnerPk: Bytes<32>, toEncKey: JubjubPoint): [] {
+  const ver = (deliveries.lookup(id).version + 1) as Uint<32>;
+  const e = ephemeralSecret();
+  const shared = ecMul(toEncKey, e);
+  const moved = ItemOpening { itemType: op.itemType, serial: op.serial, salt: itemSalt(shared, id, ver) };
+  items.insert(id, disclose(itemCommit(moved, toOwnerPk)));
+  deliveries.insert(id, Delivery {
+    ephemeral: disclose(ecMulGenerator(e)),
+    cipher: disclose(packOpening(moved) + deliveryMask(shared, id, ver)),
+    version: ver,
+  });
+}
+
+pure circuit idx16(): Vector<16, Uint<8>> {
+  return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+}
+
+pure circuit zeros16(): Vector<16, Uint<32>> {
+  return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+}
+
+pure circuit sel32(v: Vector<16, Uint<32>>, t: Uint<8>): Uint<32> {
+  return fold((acc: Uint<32>, c: Uint<32>, i: Uint<8>): Uint<32> => i == t ? c : acc,
+              0 as Uint<32>, v, idx16());
+}
+
+pure circuit sel8(v: Vector<16, Uint<8>>, t: Uint<8>): Uint<8> {
+  return fold((acc: Uint<8>, c: Uint<8>, i: Uint<8>): Uint<8> => i == t ? c : acc,
+              0 as Uint<8>, v, idx16());
+}
+
+pure circuit pointEq(a: JubjubPoint, b: JubjubPoint): Boolean {
+  return jubjubPointX(a) == jubjubPointX(b) && jubjubPointY(a) == jubjubPointY(b);
+}
+
+
+// ─── Pure circuits shared with TypeScript (same maths in the browser) ───────
+
+// Not bound to kernel.self(): the constructor runs before the contract has
+// an address. The publisher secret is generated fresh for every drop instead.
+export pure circuit publisherKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "lootseal:pub:"), sk]);
+}
+
+export pure circuit holderKey(self: Bytes<32>, sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "lootseal:own:"), self, sk]);
+}
+
+// The 64-bit roll of box `idx`. Public inputs except the seed, so the
+// publisher (and only the publisher) can replay every draw from chain data.
+export pure circuit rollOf(seed: Bytes<32>, buyerSeed: Bytes<32>, idx: Uint<32>): Uint<64> {
+  const h = persistentHash<Vector<4, Bytes<32>>>([pad(32, "lootseal:roll:"), seed, buyerSeed, idx as Bytes<32>]);
+  return slice<8>(h, 0) as Uint<64>;
+}
+
+// The salt chain of the hidden supply commitment: one step per open.
+export pure circuit resaltOf(salt: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "lootseal:resalt:"), salt]);
+}
+
+export pure circuit encPublicKey(sk: Field): JubjubPoint {
+  return ecMulGenerator(sk);
+}
+
+export pure circuit sharedPoint(sk: Field, other: JubjubPoint): JubjubPoint {
+  return ecMul(other, sk);
+}
+
+export pure circuit itemIdOf(idx: Uint<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "lootseal:item:"), idx as Bytes<32>]);
+}
+
+export pure circuit itemSalt(shared: JubjubPoint, itemId: Bytes<32>, version: Uint<32>): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>(
+    [pad(32, "lootseal:salt:"), jubjubPointX(shared) as Bytes<32>, itemId, version as Bytes<32>]);
+}
+
+export pure circuit deliveryMask(shared: JubjubPoint, itemId: Bytes<32>, version: Uint<32>): Field {
+  return degradeToTransient(persistentHash<Vector<5, Bytes<32>>>(
+    [pad(32, "lootseal:mask:"), jubjubPointX(shared) as Bytes<32>, jubjubPointY(shared) as Bytes<32>,
+     itemId, version as Bytes<32>]));
+}
+
+export pure circuit packOpening(op: ItemOpening): Field {
+  return (op.itemType as Field) * 4294967296 + (op.serial as Field);
+}
+
+export pure circuit itemCommit(op: ItemOpening, ownerPk: Bytes<32>): Bytes<32> {
+  return persistentCommit<Vector<3, Bytes<32>>>(
+    [op.itemType as Bytes<32>, op.serial as Bytes<32>, ownerPk], op.salt);
+}
+
+export pure circuit badgeIdOf(itemId: Bytes<32>, context: Bytes<32>, version: Uint<32>): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([pad(32, "lootseal:badge:"), itemId, context, version as Bytes<32>]);
+}
+
+export pure circuit tableCommitOf(t: TableOpening): Bytes<32> {
+  return persistentCommit<Vector<16, Uint<32>>>(t.counts, t.salt);
+}
+
+export pure circuit supplyCommitOf(s: SupplyOpening): Bytes<32> {
+  return persistentCommit<[Vector<16, Uint<32>>, Vector<16, Uint<32>>]>([s.remaining, s.minted], s.salt);
+}
+
+export pure circuit seedCommitOf(s: SeedOpening): Bytes<32> {
+  return persistentCommit<Bytes<32>>(s.seed, s.salt);
+}

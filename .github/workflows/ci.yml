@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Install the Compact toolchain (compiler 0.31.1)
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/compact" update 0.31.1
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Compile contracts (fast, no keys)
+        run: yarn compile:fast
+
+      - name: Typecheck (contracts, harness, fulfiller, web app)
+        run: yarn typecheck
+
+      - name: Simulator tests (contract logic, every guard, privacy, fairness)
+        run: yarn test:sim
+
+      - name: Web app unit tests
+        run: yarn test:ui
+
+      - name: Compile contracts with ZK keys and build the web app
+        run: |
+          yarn compile
+          yarn build

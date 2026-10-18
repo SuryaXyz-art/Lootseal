@@ -1,0 +1,43 @@
+{
+  "name": "lootseal",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Lootseal: loot boxes and mystery mints with odds proven in zero knowledge, on Midnight.",
+  "license": "Apache-2.0",
+  "packageManager": "yarn@4.18.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "apps/*/ui",
+    "packages/*"
+  ],
+  "scripts": {
+    "compile": "yarn workspace @lootseal/app compile",
+    "compile:fast": "yarn workspace @lootseal/app compile:fast",
+    "typecheck": "yarn workspace @lootseal/app typecheck && yarn workspace @lootseal/ui typecheck",
+    "test:sim": "yarn workspace @lootseal/app test:sim",
+    "test:ui": "yarn workspace @lootseal/ui test:unit",
+    "test:local": "yarn workspace @lootseal/app test:local",
+    "validate": "yarn workspace @lootseal/app validate",
+    "env:up": "yarn workspace @lootseal/app env:up",
+    "env:down": "yarn workspace @lootseal/app env:down",
+    "deploy": "yarn workspace @lootseal/app deploy",
+    "fulfiller": "yarn workspace @lootseal/app fulfiller",
+    "dev": "yarn workspace @lootseal/ui dev",
+    "build": "yarn workspace @lootseal/ui build",
+    "fund:wallet": "yarn workspace @midnight-ntwrk/example-fast-sync run fund:wallet"
+  },
+  "devDependencies": {
+    "bn.js": "5.2.5"
+  },
+  "resolutions": {
+    "@midnight-ntwrk/wallet-sdk": "1.2.0",
+    "@midnight-ntwrk/ledger-v8": "8.1.2",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.1.1",
+    "@midnight-ntwrk/zkir-v2": "2.1.1",
+    "vite-plugin-top-level-await/@swc/core": "1.15.47",
+    "vite-plugin-top-level-await/uuid": "11.1.1"
+  }
+}

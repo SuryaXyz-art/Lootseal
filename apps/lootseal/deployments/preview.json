@@ -1,0 +1,10 @@
+{
+  "networkId": "preview",
+  "indexerUri": "https://indexer.preview.midnight.network/api/v4/graphql",
+  "indexerWsUri": "wss://indexer.preview.midnight.network/api/v4/graphql/ws",
+  "registryAddress": "",
+  "featuredDrops": [],
+  "faucetUrl": "https://midnight-tmnight-preview.nethermind.dev/",
+  "deployedAt": null,
+  "drops": []
+}

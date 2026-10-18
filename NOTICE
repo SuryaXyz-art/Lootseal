@@ -1,0 +1,22 @@
+Lootseal
+Copyright 2026 the Lootseal authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software developed by the Midnight Foundation as part
+of midnight-examples (https://github.com/midnightntwrk/midnight-examples),
+licensed under the Apache License, Version 2.0:
+
+  - packages/sim, packages/fast-sync, packages/coins   (test and wallet harness)
+  - scripts/compile-contracts.mjs, scripts/validate-example.mjs, scripts/lib/*
+  - apps/lootseal/src/{config,providers,wallet}.ts, apps/lootseal/scripts/wait-for-dust.ts,
+    apps/lootseal/compose.yml                         (generated from templates/example)
+  - apps/lootseal/ui: the wallet connector, providers, private-state store,
+    hooks, generic components and tests generated from templates/ui
+    (packages/sim/src/sim.ts gained an optional block `time` setting)
+
+All Lootseal contracts (apps/lootseal/contract/*.compact), the shared
+TypeScript layer (contract/witnesses.ts, lib.ts, bundle.ts, staged-deploy.ts,
+registry-witnesses.ts), the tests under apps/lootseal/src/test, the fulfiller,
+the deploy script, and the Lootseal web app (pages, components, hooks,
+midnight/lootseal-api.ts) are original work for this project.

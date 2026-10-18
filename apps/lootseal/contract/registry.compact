@@ -1,0 +1,60 @@
+// This file is part of Lootseal.
+// SPDX-License-Identifier: Apache-2.0
+// Licensed under the Apache License, Version 2.0 (the "License");
+// You may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Lootseal registry: an on-chain directory of drops so the app can list them
+// without a server. Anyone may register, but an entry is only shown once the
+// drop it points to confirms it: the registrant proves knowledge of the
+// publisher secret, and the app checks that the derived key equals the
+// publisherPk stored by the drop at that address. A spammer can add entries,
+// but cannot make them pass that check for a drop they did not publish.
+
+pragma language_version 0.23;
+import CompactStandardLibrary;
+
+export struct DropEntry {
+  dropAddress: Bytes<32>,
+  title: Bytes<32>,
+  publisherPk: Bytes<32>,
+  registeredAt: Uint<64>,
+}
+
+export ledger drops: Map<Uint<32>, DropEntry>;
+export ledger dropCount: Uint<32>;
+export ledger registered: Set<Bytes<32>>;
+
+witness registrantSecret(): Bytes<32>;
+
+constructor() {
+  dropCount = 0;
+}
+
+export circuit registerDrop(dropAddress: Bytes<32>, title: Bytes<32>, now: Uint<64>): [] {
+  const addr = disclose(dropAddress);
+  assert(!registered.member(addr), "This drop is already registered");
+  const t = disclose(now);
+  assert(t >= 300, "Invalid timestamp");
+  assert(blockTimeGte((t - 300) as Uint<64>) && blockTimeLt((t + 300) as Uint<64>),
+         "Your clock is too far from block time");
+  // Same derivation as lootseal.compact publisherKey(sk).
+  const pk = disclose(persistentHash<Vector<2, Bytes<32>>>(
+    [pad(32, "lootseal:pub:"), registrantSecret()]));
+  drops.insert(dropCount, DropEntry {
+    dropAddress: addr,
+    title: disclose(title),
+    publisherPk: pk,
+    registeredAt: t,
+  });
+  registered.insert(addr);
+  dropCount = (dropCount + 1) as Uint<32>;
+}

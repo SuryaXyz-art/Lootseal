@@ -1,0 +1,36 @@
+# Runs a Lootseal fulfiller next to its own proof server.
+#
+#   cp apps/lootseal/fulfiller/.env.example apps/lootseal/fulfiller/.env   # fill it in
+#   yarn compile
+#   docker compose -f apps/lootseal/fulfiller/compose.yml up -d --build
+#
+# The proof server sees the publisher's witness data while proving, so it
+# runs here, beside the fulfiller, never as a shared public service.
+services:
+  proof-server:
+    image: 'midnightntwrk/proof-server:8.1.0'
+    command: ['midnight-proof-server', '-v']
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'echo > /dev/tcp/127.0.0.1/6300']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  fulfiller:
+    build:
+      context: ../../..
+      dockerfile: apps/lootseal/fulfiller/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MIDNIGHT_PROOF_SERVER: 'http://proof-server:6300'
+      LOOTSEAL_PROOF_PORT: '6300'
+      BUNDLE_PATH: '/secrets/publisher.json'
+    volumes:
+      - ./secrets:/secrets:ro
+    ports:
+      - '127.0.0.1:8787:8787'
+    depends_on:
+      proof-server:
+        condition: service_healthy
