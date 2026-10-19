@@ -40,7 +40,9 @@ export function buildProviders(
     privateStateProvider: levelPrivateStateProvider({
       // The random suffix keeps each provider set's private-state store separate
       // when a test builds several sets (wallets, contracts) in the same millisecond.
-      privateStateStoreName: `lootseal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      // LOOTSEAL_STATE_STORE reopens an existing store (e.g. to resume a deploy).
+      privateStateStoreName:
+        process.env['LOOTSEAL_STATE_STORE'] ?? `lootseal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       // this password has requirements (capital/special chars >= 3)
       privateStoragePasswordProvider: () => 'Lootseal-Test-Password',
       accountId: wallet.getCoinPublicKey(),

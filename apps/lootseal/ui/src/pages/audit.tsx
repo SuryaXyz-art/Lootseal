@@ -5,6 +5,7 @@ import { BadgeCheck, CheckCircle2, CircleDashed, EyeOff, ShieldCheck, XCircle } 
 import { Button } from "@/components/ui/button";
 import { ItemArt, OddsBars, TierBadge } from "@/components/loot";
 import { Empty, PageTitle, Spinner } from "@/components/shell";
+import { ShareButtons, absoluteHref, badgePost } from "@/components/share";
 import { useDrop } from "@/hooks/use-lootseal";
 import { useMidnightProviders } from "@/providers/midnight-providers";
 import { useWallet } from "@/hooks/use-wallet";
@@ -80,7 +81,7 @@ function Audit({ address, drop }: { address: string; drop: DropLedger }) {
         title={`Audit · ${decodeText32(drop.title)}`}
         subtitle="Everything Lootseal guarantees about this drop, checked from public chain data."
         actions={
-          <a href={hrefFor({ name: "drop", address })} className="text-sm text-violet-300 hover:underline">
+          <a href={hrefFor({ name: "drop", address })} className="text-sm sec-text hover:underline">
             Back to drop
           </a>
         }
@@ -91,7 +92,7 @@ function Audit({ address, drop }: { address: string; drop: DropLedger }) {
             <ul className="space-y-3">
               {checks.map((c) => (
                 <li key={c.title} className="flex gap-3">
-                  {c.state === "pass" && <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-400" />}
+                  {c.state === "pass" && <CheckCircle2 className="mt-0.5 size-5 shrink-0 animate-[fade-up_0.6s_ease-out] text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.7)]" />}
                   {c.state === "fail" && <XCircle className="mt-0.5 size-5 shrink-0 text-rose-400" />}
                   {c.state === "pending" && <CircleDashed className="mt-0.5 size-5 shrink-0 text-muted-foreground" />}
                   <div>
@@ -221,8 +222,9 @@ export function VerifyPage({ address, badge }: { address: string; badge: string 
   const style = tierStyle(b.maxTier);
   return (
     <div className="mx-auto max-w-lg">
-      <div className="glass overflow-hidden rounded-3xl text-center" style={{ boxShadow: `0 0 60px -20px ${style.glow}` }}>
-        <div className="grid place-items-center bg-gradient-to-b from-black/40 to-transparent p-8">
+      <div className="glass glow-border overflow-hidden rounded-3xl text-center" style={{ boxShadow: `0 0 60px -20px ${style.glow}` }}>
+        <div className="relative grid place-items-center bg-gradient-to-b from-black/40 to-transparent p-8">
+          <span className="absolute size-40 animate-[pulse-ring_2.8s_ease-out_infinite] rounded-full border" style={{ borderColor: style.color }} />
           <ItemArt dropAddress={address} itemType={b.maxTier} tier={b.maxTier} hidden size={160} />
         </div>
         <div className="space-y-3 p-6">
@@ -233,12 +235,28 @@ export function VerifyPage({ address, badge }: { address: string; badge: string 
             {b.maxTier === 0 ? "Legendary" : b.maxTier === 4 ? "Genuine item" : `${style.name} or rarer`}
           </h1>
           <p className="text-muted-foreground">
-            {topLabel(b.maxTier, drop)} of <a className="text-violet-300 hover:underline" href={hrefFor({ name: "drop", address })}>{decodeText32(drop.title)}</a>
+            {topLabel(b.maxTier, drop)} of <a className="sec-text hover:underline" href={hrefFor({ name: "drop", address })}>{decodeText32(drop.title)}</a>
           </p>
           <p className="text-xs text-muted-foreground">
             Proven in zero knowledge for “{b.context}”. The exact item and its serial stay private.
           </p>
           <p className="font-mono text-[11px] text-muted-foreground">item {shortHex(b.itemId, 10, 8)}</p>
+          {b.current && (
+            <ShareButtons
+              className="pt-2"
+              text={badgePost({ tier: b.maxTier, dropTitle: decodeText32(drop.title) })}
+              url={absoluteHref(hrefFor({ name: "verify", address, badge }))}
+              card={{
+                dropAddress: address,
+                dropTitle: decodeText32(drop.title),
+                itemType: b.maxTier,
+                tier: b.maxTier,
+                detail: `${topLabel(b.maxTier, drop)} · the exact item stays private`,
+                kicker: "Rarity proven in zero knowledge",
+                sealed: true,
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

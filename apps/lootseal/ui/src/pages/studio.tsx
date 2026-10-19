@@ -74,7 +74,7 @@ export function StudioPage() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={cn("rounded-lg px-4 py-1.5 text-sm", tab === t ? "bg-violet-500 text-white" : "text-muted-foreground hover:text-foreground")}
+                className={cn("rounded-lg px-4 py-1.5 text-sm", tab === t ? "btn-glow" : "text-muted-foreground hover:text-foreground")}
               >
                 {t === "create" ? "New drop" : "My drops"}
               </button>
@@ -170,7 +170,7 @@ function CreateDrop({ onLaunched }: { onLaunched: () => void }) {
     <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
       <div className="space-y-6">
         <section className="glass space-y-4 rounded-2xl p-5">
-          <h2 className="font-semibold">1 · The drop</h2>
+          <h2 className="flex items-center gap-3 font-semibold"><span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-[var(--sec-a)] to-[var(--sec-b)] text-sm font-bold text-[#140f33] shadow-[0_0_18px_-4px_var(--sec-a)]">1</span>The drop</h2>
           <Field label="Title (shown to buyers)">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={32} />
           </Field>
@@ -198,7 +198,7 @@ function CreateDrop({ onLaunched }: { onLaunched: () => void }) {
 
         <section className="glass rounded-2xl p-5">
           <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold">2 · Items and hidden supply</h2>
+            <h2 className="flex items-center gap-3 font-semibold"><span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-[var(--sec-a)] to-[var(--sec-b)] text-sm font-bold text-[#140f33] shadow-[0_0_18px_-4px_var(--sec-a)]">2</span>Items and hidden supply</h2>
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" onClick={() => setItems(TEMPLATE)}>
                 <Wand2 /> Use template
@@ -255,8 +255,8 @@ function CreateDrop({ onLaunched }: { onLaunched: () => void }) {
       </div>
 
       <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-        <div className="glass space-y-4 rounded-2xl p-5">
-          <h2 className="font-semibold">3 · Review &amp; launch</h2>
+        <div className="glass glow-border space-y-4 rounded-2xl p-5">
+          <h2 className="flex items-center gap-3 font-semibold"><span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-[var(--sec-a)] to-[var(--sec-b)] text-sm font-bold text-[#140f33] shadow-[0_0_18px_-4px_var(--sec-a)]">3</span>Review &amp; launch</h2>
           <OddsBars tierTotals={totals} totalSupply={supply} proven={false} compact />
           <p className="text-sm text-muted-foreground">
             {supply.toLocaleString()} boxes · {amounts ? formatNight(amounts.p) : "—"} each · bond {amounts ? formatNight(amounts.b) : "—"}
@@ -268,7 +268,7 @@ function CreateDrop({ onLaunched }: { onLaunched: () => void }) {
               ))}
             </ul>
           )}
-          <Button className="h-11 w-full bg-violet-500 font-semibold text-white hover:bg-violet-400" disabled={errors.length > 0 || launching || tx.busy} onClick={launch}>
+          <Button className="btn-glow h-11 w-full rounded-xl font-semibold" disabled={errors.length > 0 || launching || tx.busy} onClick={launch}>
             {launching ? <Loader2 className="animate-spin" /> : <Rocket />} Launch drop
           </Button>
           <p className="text-xs text-muted-foreground">You'll approve about 7 transactions in your wallet. Keep this tab open until the steps finish.</p>
@@ -297,7 +297,7 @@ function LaunchSteps({ progress }: { progress: CreateProgress }) {
             {i < at ? (
               <Check className="size-4 text-emerald-400" />
             ) : i === at ? (
-              <Loader2 className="size-4 animate-spin text-violet-300" />
+              <Loader2 className="size-4 animate-spin sec-text" />
             ) : (
               <Circle className="size-4 text-muted-foreground" />
             )}
@@ -378,7 +378,7 @@ function ManagedDrop({ address }: { address: string }) {
             {!isPublisher && <Chip tone="bad">Publisher secrets not in this browser</Chip>}
           </div>
         </div>
-        <a href={hrefFor({ name: "audit", address })} className="inline-flex items-center gap-1 text-sm text-violet-300 hover:underline">
+        <a href={hrefFor({ name: "audit", address })} className="inline-flex items-center gap-1 text-sm sec-text hover:underline">
           <Eye className="size-4" /> Audit
         </a>
       </div>

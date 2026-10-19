@@ -33,7 +33,7 @@ export const config: AppConfig = {
   indexerUri: env.VITE_INDEXER_URI ?? deployment.indexerUri,
   indexerWsUri: env.VITE_INDEXER_WS_URI ?? deployment.indexerWsUri,
   registryAddress: env.VITE_REGISTRY_ADDRESS ?? deployment.registryAddress,
-  featuredDrops: env.VITE_FEATURED_DROPS ? list(env.VITE_FEATURED_DROPS) : deployment.featuredDrops,
+  featuredDrops: env.VITE_FEATURED_DROPS !== undefined ? list(env.VITE_FEATURED_DROPS) : deployment.featuredDrops,
   faucetUrl: env.VITE_FAUCET_URL ?? deployment.faucetUrl,
   explorerTxUrl: env.VITE_EXPLORER_TX_URL ?? null,
 };

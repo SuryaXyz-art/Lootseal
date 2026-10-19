@@ -135,8 +135,13 @@ export function OddsBars({
             </span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
               <div
-                className="h-full rounded-full"
-                style={{ width: `${Math.max(p, 1.5)}%`, background: tierStyle(tier).color, boxShadow: `0 0 12px ${tierStyle(tier).glow}` }}
+                className="bar-fill h-full rounded-full"
+                style={{
+                  width: `${Math.max(p, 1.5)}%`,
+                  background: `linear-gradient(90deg, ${tierStyle(tier).color}99, ${tierStyle(tier).color})`,
+                  boxShadow: `0 0 12px ${tierStyle(tier).glow}`,
+                  animationDelay: `${tier * 120}ms`,
+                }}
               />
             </div>
             <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{formatPercent(p)}</span>
@@ -171,10 +176,19 @@ export function ItemCard({
   const style = tierStyle(tier);
   return (
     <div
-      className={cn("glass group relative flex flex-col overflow-hidden rounded-2xl p-3 transition-transform hover:-translate-y-0.5", className)}
-      style={{ boxShadow: `0 0 0 1px ${style.color}22, 0 12px 40px -18px ${style.glow}` }}
+      className={cn("glass tilt group relative flex flex-col overflow-hidden rounded-2xl p-3", className)}
+      style={{ boxShadow: `0 0 0 1px ${style.color}33, 0 16px 44px -18px ${style.glow}` }}
     >
-      <ItemArt dropAddress={dropAddress} itemType={itemType} tier={tier} size={220} className="h-auto w-full" />
+      <div className="relative overflow-hidden rounded-[14px]">
+        <ItemArt
+          dropAddress={dropAddress}
+          itemType={itemType}
+          tier={tier}
+          size={220}
+          className="h-auto w-full transition-transform duration-500 group-hover:scale-105"
+        />
+        <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+      </div>
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-semibold">{name}</p>

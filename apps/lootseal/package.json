@@ -1,6 +1,6 @@
 {
   "name": "@lootseal/app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -22,7 +22,10 @@
     "wait:dust": "vite-node scripts/wait-for-dust.ts",
     "validate": "node ../../scripts/validate-example.mjs",
     "deploy": "vite-node scripts/deploy.ts",
-    "fulfiller": "vite-node fulfiller/main.ts"
+    "fulfiller": "vite-node fulfiller/main.ts",
+    "activity": "vite-node scripts/seed-activity.ts",
+    "field-test": "vite-node scripts/field-test.ts",
+    "indexer-cache": "node scripts/indexer-cache.mjs"
   },
   "dependencies": {
     "@midnight-ntwrk/example-coins": "workspace:^",

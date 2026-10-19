@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // One drop: catalog, proven odds, buying a box, waiting for the sealed draw,
 // the reveal, refunds, and (for the publisher) the opening queue.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Clock, EyeOff, FileSearch, Loader2, Lock, PackageOpen, ShieldCheck, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/modal";
@@ -28,7 +28,9 @@ import {
   trustRecord,
 } from "@/lib/drop-view";
 import { formatNight, relativeTime, shortHex } from "@/lib/format";
-import { Link } from "@/router";
+import { tierStyle } from "@/lib/art";
+import { hrefFor, Link } from "@/router";
+import { absoluteHref, pullPost } from "@/components/share";
 import { decodeText32 } from "../../../contract/lib.js";
 import { toHex } from "../../../contract/witnesses.js";
 
@@ -81,12 +83,12 @@ function DropView({ address, drop }: { address: string; drop: DropLedger }) {
             {oddsProven(drop) && <Chip tone="good">Odds proven ✓</Chip>}
             {drop.oddsVerified && <Chip tone="good">Audit passed ✓</Chip>}
           </div>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{decodeText32(drop.title)}</h1>
+          <h1 className="text-gradient text-3xl font-extrabold tracking-tight sm:text-5xl">{decodeText32(drop.title)}</h1>
           <p className="mt-1 font-mono text-xs text-muted-foreground" title={address}>
             {shortHex(address, 10, 8)}
           </p>
         </div>
-        <div className="glass grid grid-cols-3 gap-6 rounded-2xl px-6 py-4 text-center">
+        <div className="glass glow-border grid grid-cols-3 gap-6 rounded-2xl px-6 py-4 text-center">
           <Stat label="Price" value={formatNight(drop.price)} />
           <Stat label="Sold" value={`${sold.toLocaleString()} / ${total.toLocaleString()}`} />
           <Stat label={now < Number(drop.saleEnd) ? "Ends" : "Ended"} value={relativeTime(Number(drop.saleEnd), now)} />
@@ -97,8 +99,8 @@ function DropView({ address, drop }: { address: string; drop: DropLedger }) {
         <div className="space-y-8">
           <section className="glass rounded-2xl p-5">
             <OddsBars tierTotals={drop.tierTotals} totalSupply={drop.totalSupply} proven={oddsProven(drop)} />
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-violet-400/20 bg-violet-500/5 p-3 text-sm">
-              <Lock className="mt-0.5 size-4 shrink-0 text-violet-300" />
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-[color-mix(in_oklab,var(--sec-a)_25%,transparent)] bg-[color-mix(in_oklab,var(--sec-a)_6%,transparent)] p-3 text-sm">
+              <Lock className="mt-0.5 size-4 shrink-0 sec-text" />
               <p className="text-muted-foreground">
                 <span className="text-foreground">What's left in the drop is hidden, by design.</span> Nobody — not bots, not insiders,
                 not you — can see which items remain, so every box carries exactly the advertised odds and there is nothing to snipe.
@@ -107,10 +109,16 @@ function DropView({ address, drop }: { address: string; drop: DropLedger }) {
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-semibold">What's inside</h2>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+              <span className="h-5 w-1 rounded-full bg-gradient-to-b from-[var(--sec-a)] to-[var(--sec-b)]" /> What's inside
+            </h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {catalog.map((it) => (
-                <div key={it.itemType} className="glass rounded-xl p-2">
+                <div
+                  key={it.itemType}
+                  className="glass tilt rounded-xl p-2 hover:shadow-[0_18px_40px_-16px_var(--tier-glow)]"
+                  style={{ "--tier-glow": tierStyle(it.tier).glow } as CSSProperties}
+                >
                   <ItemArt dropAddress={address} itemType={it.itemType} tier={it.tier} size={160} className="h-auto w-full" />
                   <p className="mt-2 truncate text-sm font-medium">{it.name}</p>
                   <div className="mt-1 flex items-center justify-between">
@@ -125,7 +133,7 @@ function DropView({ address, drop }: { address: string; drop: DropLedger }) {
           <section className="glass rounded-2xl p-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold">Trust record</h2>
-              <Link to={{ name: "audit", address }} className="inline-flex items-center gap-1 text-sm text-violet-300 hover:underline">
+              <Link to={{ name: "audit", address }} className="inline-flex items-center gap-1 text-sm sec-text hover:underline">
                 <FileSearch className="size-4" /> Full audit
               </Link>
             </div>
@@ -189,16 +197,22 @@ function BuyPanel({ address, drop, phase }: { address: string; drop: DropLedger;
 
   return (
     <>
-      <div className="glass overflow-hidden rounded-2xl">
-        <div className="grid place-items-center bg-gradient-to-b from-violet-950/50 to-transparent pb-2 pt-6">
-          <div className={phase === "live" ? "animate-[float_5s_ease-in-out_infinite]" : "opacity-60 grayscale"}>
+      <div className="glass glow-border overflow-hidden rounded-2xl">
+        <div className="relative grid place-items-center bg-gradient-to-b from-[color-mix(in_oklab,var(--sec-a)_22%,transparent)] to-transparent pb-2 pt-6">
+          {phase === "live" && (
+            <>
+              <span className="absolute top-[38%] size-36 -translate-y-1/2 animate-[pulse-ring_2.8s_ease-out_infinite] rounded-full border border-[var(--sec-a)]" />
+              <span className="absolute top-[38%] size-36 -translate-y-1/2 animate-[pulse-ring_2.8s_ease-out_1.4s_infinite] rounded-full border border-[var(--sec-b)]" />
+            </>
+          )}
+          <div className={phase === "live" ? "relative animate-[float_5s_ease-in-out_infinite]" : "opacity-60 grayscale"}>
             <SealedBox size={150} />
           </div>
         </div>
         <div className="space-y-4 p-5">
           {phase === "live" ? (
             <WalletGate reason="to open a box">
-              <Button className="h-12 w-full bg-violet-500 text-base font-semibold text-white hover:bg-violet-400" disabled={tx.busy} onClick={doBuy}>
+              <Button className="btn-glow h-12 w-full rounded-xl text-base font-semibold" disabled={tx.busy} onClick={doBuy}>
                 {tx.busy ? <Loader2 className="animate-spin" /> : <PackageOpen />} Open a box · {formatNight(drop.price)}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
@@ -290,7 +304,7 @@ function BuyPanel({ address, drop, phase }: { address: string; drop: DropLedger;
               Open next box (#{((queue[0]?.id ?? 0n) + 1n).toString()})
             </Button>
           )}
-          <Link to={{ name: "studio" }} className="mt-3 block text-center text-xs text-violet-300 hover:underline">
+          <Link to={{ name: "studio" }} className="mt-3 block text-center text-xs sec-text hover:underline">
             Manage in Studio
           </Link>
         </div>
@@ -308,11 +322,24 @@ function BuyPanel({ address, drop, phase }: { address: string; drop: DropLedger;
               top: topLabel(revealed.tier, drop),
             }}
             onDone={() => setReveal(null)}
+            share={{
+              text: pullPost({ name: revealed.name, tier: revealed.tier, dropTitle: decodeText32(drop.title), top: topLabel(revealed.tier, drop) }),
+              url: absoluteHref(hrefFor({ name: "drop", address })),
+              card: {
+                dropAddress: address,
+                dropTitle: decodeText32(drop.title),
+                itemType: revealed.itemType,
+                tier: revealed.tier,
+                name: revealed.name,
+                detail: `#${reveal.serial.toString()} · ${topLabel(revealed.tier, drop)}`,
+                kicker: "Pulled from a provably fair box",
+              },
+            }}
           />
         )}
         {reveal && (
           <div className="mt-2 flex justify-center">
-            <Link to={{ name: "vault" }} className="text-sm text-violet-300 hover:underline" onClick={() => setReveal(null)}>
+            <Link to={{ name: "vault" }} className="text-sm sec-text hover:underline" onClick={() => setReveal(null)}>
               Go to your vault
             </Link>
           </div>

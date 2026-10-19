@@ -9,6 +9,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/__tests__/setup.ts"],
+    // Keep the app off the live network: no registry and no featured drops,
+    // whatever deployments/preview.json currently records.
+    env: { VITE_REGISTRY_ADDRESS: "", VITE_FEATURED_DROPS: "" },
   },
   resolve: {
     alias: {

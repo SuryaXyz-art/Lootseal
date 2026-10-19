@@ -41,3 +41,7 @@ Thumbs.db
 *.log
 .vercel
 **/fulfiller/secrets/
+# Local devnet deployments are throwaway
+apps/lootseal/deployments/local.json
+# Local indexer event cache (public chain data, large)
+apps/lootseal/.indexer-cache/

@@ -29,6 +29,8 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     reporters: ['default'],
     sequence: { concurrent: false },
+    // Devnet suites share the genesis wallets: run files one at a time.
+    fileParallelism: false,
     // Each sim worker loads the Compact runtime (~0.5 GB); the default of one
     // worker per core overloads WSL on many-core machines.
     maxWorkers: 4,

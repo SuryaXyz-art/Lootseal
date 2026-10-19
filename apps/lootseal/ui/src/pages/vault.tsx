@@ -80,7 +80,8 @@ function DropVault({ entry }: { entry: DirectoryDrop }) {
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          <span className="h-6 w-1 rounded-full bg-gradient-to-b from-[var(--sec-a)] to-[var(--sec-b)]" />
           <a href={hrefFor({ name: "drop", address: entry.address })} className="hover:underline">
             {name}
           </a>

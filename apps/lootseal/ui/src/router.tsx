@@ -9,6 +9,7 @@ export type Route =
   | { name: "vault" }
   | { name: "bazaar" }
   | { name: "studio" }
+  | { name: "fieldTest" }
   | { name: "audit"; address: string }
   | { name: "verify"; address: string; badge: string }
   | { name: "notFound"; path: string };
@@ -23,6 +24,7 @@ export function parseRoute(hash: string): Route {
   if (head === "vault" && parts.length === 1) return { name: "vault" };
   if (head === "bazaar" && parts.length === 1) return { name: "bazaar" };
   if (head === "studio" && parts.length === 1) return { name: "studio" };
+  if (head === "field-test" && parts.length === 1) return { name: "fieldTest" };
   if (head === "drop" && a && HEX64.test(a) && parts.length === 2) return { name: "drop", address: a.toLowerCase() };
   if (head === "audit" && a && HEX64.test(a) && parts.length === 2) return { name: "audit", address: a.toLowerCase() };
   if (head === "verify" && a && b && HEX64.test(a) && HEX64.test(b) && parts.length === 3) {
@@ -41,6 +43,8 @@ export function hrefFor(route: Route): string {
       return `#/audit/${route.address}`;
     case "verify":
       return `#/verify/${route.address}/${route.badge}`;
+    case "fieldTest":
+      return "#/field-test";
     case "notFound":
       return `#${route.path}`;
     default:

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import wasm from "vite-plugin-wasm";
@@ -10,8 +10,18 @@ import { nodePolyfills } from "vite-plugin-node-polyfills";
 // Yarn hoists to the repo root (see the root AGENTS.md). Asking for a different
 // major here could change what gets hoisted and break other examples' vitest
 // configs.
-export default defineConfig({
+// Link previews (X, Discord, …) need absolute image URLs. The site's origin
+// comes from VITE_SITE_URL, or from Vercel's production URL at build time.
+function siteUrl(mode: string): Plugin {
+  const env = loadEnv(mode, process.cwd(), "VITE_");
+  const vercel = process.env["VERCEL_PROJECT_PRODUCTION_URL"];
+  const origin = (env["VITE_SITE_URL"] ?? (vercel ? `https://${vercel}` : "")).replace(/\/$/, "");
+  return { name: "lootseal-site-url", transformIndexHtml: (html) => html.replaceAll("__SITE_URL__", origin) };
+}
+
+export default defineConfig(({ mode }) => ({
   plugins: [
+    siteUrl(mode),
     react(),
     tailwindcss(),
     // The ledger / onchain-runtime packages ship WebAssembly and load it with
@@ -55,4 +65,4 @@ export default defineConfig({
   build: {
     target: "esnext",
   },
-});
+}));

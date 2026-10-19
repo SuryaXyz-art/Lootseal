@@ -84,8 +84,11 @@ export function pendingQueue(d: DropLedger): { id: bigint; requestedAt: number }
   return out;
 }
 
-export const topLabel = (tier: number, d: DropLedger): string =>
-  `Top ${formatPercent(topShare(tier, d.tierTotals, d.totalSupply))}`;
+export const topLabel = (tier: number, d: DropLedger): string => {
+  const share = topShare(tier, d.tierTotals, d.totalSupply);
+  // The lowest tier covers every box, where "Top 100%" reads oddly.
+  return share >= 99.95 ? "Base tier" : `Top ${formatPercent(share)}`;
+};
 
 export interface TrustRecord {
   opened: number;

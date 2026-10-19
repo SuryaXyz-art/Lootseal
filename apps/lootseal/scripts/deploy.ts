@@ -24,6 +24,12 @@
 // BUNDLE_PASSPHRASE, or a generated one written next to the bundle.
 // A first run on a remote network prints the wallet's address and waits for
 // you to fund it from the faucet.
+//
+// Resume an interrupted run (same deployer wallet) with
+//   RESUME_REGISTRY=<registry> RESUME_DROP=<drop> LOOTSEAL_STATE_STORE=<store>
+// where the store is the private-state store the first run used (it holds the
+// publisher secrets, saved before every transaction). Only the missing launch
+// steps run.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
@@ -41,6 +47,7 @@ import {
   CompiledLootsealContract,
   CompiledRegistryContract,
   ledger,
+  registryLedger,
   registryZkConfigPath,
   zkConfigPath,
 } from '../contract/index.js';
@@ -117,14 +124,22 @@ async function main() {
   const providers = buildProviders(wallet, zkConfigPath, config);
   const registryProviders = buildProviders(wallet, registryZkConfigPath, config);
 
-  logger.info('Deploying the registry…');
-  const reg = await (deployContract as any)(registryProviders, {
-    compiledContract: CompiledRegistryContract,
-    privateStateId: 'registrant',
-    initialPrivateState: createRegistryPrivateState(new Uint8Array(32)),
-  });
-  const registryAddress = reg.deployTxData.public.contractAddress as ContractAddress;
-  logger.info(`Registry: ${registryAddress}`);
+  const resumeRegistry = process.env['RESUME_REGISTRY'] as ContractAddress | undefined;
+  const resumeDrop = process.env['RESUME_DROP'] as ContractAddress | undefined;
+  let registryAddress: ContractAddress;
+  if (resumeRegistry) {
+    registryAddress = resumeRegistry;
+    logger.info(`Reusing registry ${registryAddress}`);
+  } else {
+    logger.info('Deploying the registry…');
+    const reg = await (deployContract as any)(registryProviders, {
+      compiledContract: CompiledRegistryContract,
+      privateStateId: 'registrant',
+      initialPrivateState: createRegistryPrivateState(new Uint8Array(32)),
+    });
+    registryAddress = reg.deployTxData.public.contractAddress as ContractAddress;
+    logger.info(`Registry: ${registryAddress}`);
+  }
 
   const counts = [...CATALOG.map(([, , c]) => BigInt(c)), ...Array<bigint>(ITEM_TYPES - CATALOG.length).fill(0n)];
   const tierTotals = [0n, 0n, 0n, 0n, 0n];
@@ -143,14 +158,26 @@ async function main() {
     settleWindow: 24n * 3_600n,
     payout,
   };
-  const publisher = createPublisherPrivateState(counts);
-
-  logger.info('Deploying Genesis Relics (staged)…');
-  const { address } = await deployStaged(
-    providers,
-    { compiledContract: CompiledLootsealContract, privateStateId: 'publisher', initialPrivateState: publisher, args: [params] },
-    (p) => logger.info(`  ${JSON.stringify(p)}`),
-  );
+  let address: ContractAddress;
+  if (resumeDrop) {
+    address = resumeDrop;
+    logger.info(`Resuming Genesis Relics at ${address}`);
+  } else {
+    logger.info('Deploying Genesis Relics (staged)…');
+    ({ address } = await deployStaged(
+      providers,
+      {
+        compiledContract: CompiledLootsealContract,
+        privateStateId: 'publisher',
+        initialPrivateState: createPublisherPrivateState(counts),
+        args: [params],
+      },
+      (p) => logger.info(`  ${JSON.stringify(p)}`),
+    ));
+  }
+  providers.privateStateProvider.setContractAddress(address);
+  const publisher = (await providers.privateStateProvider.get('publisher')) as LootsealPrivateState | null;
+  if (!publisher?.publisher) throw new Error('No publisher secrets for this drop in the private-state store');
   const call = (circuitId: string) =>
     (submitCallTx as any)(providers, {
       compiledContract: CompiledLootsealContract,
@@ -159,21 +186,30 @@ async function main() {
       circuitId,
       args: [],
     });
-  logger.info('Committing the hidden table (odds proof + bond)…');
-  await call('commitTable');
-  logger.info('Committing the master seed…');
-  await call('commitSeed');
+  const stateNow = async () => ledger((await providers.publicDataProvider.queryContractState(address))!.data).state;
+  if ((await stateNow()) === 0) {
+    logger.info('Committing the hidden table (odds proof + bond)…');
+    await call('commitTable');
+  }
+  if ((await stateNow()) === 1) {
+    logger.info('Committing the master seed…');
+    await call('commitSeed');
+  }
 
-  logger.info('Registering the drop…');
-  registryProviders.privateStateProvider.setContractAddress(registryAddress);
-  await registryProviders.privateStateProvider.set('registrant', createRegistryPrivateState(publisher.publisher!.secret));
-  await (submitCallTx as any)(registryProviders, {
-    compiledContract: CompiledRegistryContract,
-    contractAddress: registryAddress,
-    privateStateId: 'registrant',
-    circuitId: 'registerDrop',
-    args: [fromHex(address), params.title, BigInt(Math.floor(Date.now() / 1000))],
-  });
+  const regState = await registryProviders.publicDataProvider.queryContractState(registryAddress);
+  const alreadyListed = regState ? registryLedger(regState.data).registered.member(fromHex(address)) : false;
+  if (!alreadyListed) {
+    logger.info('Registering the drop…');
+    registryProviders.privateStateProvider.setContractAddress(registryAddress);
+    await registryProviders.privateStateProvider.set('registrant', createRegistryPrivateState(publisher.publisher.secret));
+    await (submitCallTx as any)(registryProviders, {
+      compiledContract: CompiledRegistryContract,
+      contractAddress: registryAddress,
+      privateStateId: 'registrant',
+      circuitId: 'registerDrop',
+      args: [fromHex(address), params.title, BigInt(Math.floor(Date.now() / 1000))],
+    });
+  }
 
   providers.privateStateProvider.setContractAddress(address);
   const finalState = (await providers.privateStateProvider.get('publisher')) as LootsealPrivateState;
@@ -188,7 +224,9 @@ async function main() {
   const record = {
     networkId: config.networkId,
     indexerUri: config.indexer,
-    indexerWsUri: config.indexerWS,
+    // Record the public indexer even when this run synced through a local
+    // cache (MIDNIGHT_INDEXER_WS): the web app reads this file.
+    indexerWsUri: process.env['MIDNIGHT_INDEXER_WS'] ? config.indexer.replace(/^http/, 'ws') + '/ws' : config.indexerWS,
     registryAddress,
     featuredDrops: [address],
     faucetUrl: config.faucet,

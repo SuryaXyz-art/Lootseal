@@ -111,7 +111,7 @@ export function Toaster() {
           className="glass pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl p-3 shadow-2xl animate-[toast-in_200ms_ease-out]"
         >
           <span className="mt-0.5">
-            {t.kind === "pending" && <Loader2 className="size-5 animate-spin text-violet-300" />}
+            {t.kind === "pending" && <Loader2 className="size-5 animate-spin sec-text" />}
             {t.kind === "success" && <CheckCircle2 className="size-5 text-emerald-400" />}
             {t.kind === "error" && <XCircle className="size-5 text-rose-400" />}
           </span>
@@ -120,7 +120,7 @@ export function Toaster() {
             {t.detail && <p className="mt-0.5 text-xs text-muted-foreground break-words">{t.detail}</p>}
             {t.txId && config.explorerTxUrl && (
               <a
-                className="mt-1 inline-block text-xs text-violet-300 underline-offset-2 hover:underline"
+                className="mt-1 inline-block text-xs sec-text underline-offset-2 hover:underline"
                 href={config.explorerTxUrl.replace("{tx}", t.txId)}
                 target="_blank"
                 rel="noreferrer"

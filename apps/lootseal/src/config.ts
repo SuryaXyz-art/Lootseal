@@ -50,7 +50,8 @@ export const LOCAL_CONFIG: NetworkConfig = {
 export const PREVIEW_CONFIG: NetworkConfig = {
   networkId: 'preview',
   indexer: 'https://indexer.preview.midnight.network/api/v4/graphql',
-  indexerWS: 'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
+  // MIDNIGHT_INDEXER_WS can point at scripts/indexer-cache.mjs for a fast first sync.
+  indexerWS: process.env['MIDNIGHT_INDEXER_WS'] ?? 'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
   node: 'https://rpc.preview.midnight.network',
   nodeWS: 'wss://rpc.preview.midnight.network',
   proofServer: process.env['MIDNIGHT_PROOF_SERVER'] ?? 'http://127.0.0.1:6300',

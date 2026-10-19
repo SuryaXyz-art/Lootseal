@@ -2,9 +2,26 @@
   "networkId": "preview",
   "indexerUri": "https://indexer.preview.midnight.network/api/v4/graphql",
   "indexerWsUri": "wss://indexer.preview.midnight.network/api/v4/graphql/ws",
-  "registryAddress": "",
-  "featuredDrops": [],
+  "registryAddress": "9a50e32ce590446b1c0eef5a5c0e0bf6897bbbc79b11975716d935d452b9eca3",
+  "featuredDrops": [
+    "24c64a4eceaeb7f810bd6ca6812e8af9ad82ad1fa476491e8cfd6741e9fde406"
+  ],
   "faucetUrl": "https://midnight-tmnight-preview.nethermind.dev/",
-  "deployedAt": null,
-  "drops": []
+  "deployedAt": "2026-10-18T21:01:39.517Z",
+  "drops": [
+    {
+      "address": "24c64a4eceaeb7f810bd6ca6812e8af9ad82ad1fa476491e8cfd6741e9fde406",
+      "title": "Genesis Relics",
+      "totalSupply": 1000,
+      "tierTotals": [
+        10,
+        40,
+        150,
+        300,
+        500
+      ],
+      "priceStar": "5000000",
+      "state": 2
+    }
+  ]
 }

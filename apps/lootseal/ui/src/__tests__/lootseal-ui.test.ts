@@ -18,11 +18,12 @@ describe("router", () => {
       parseRoute("#/vault"),
       parseRoute("#/bazaar"),
       parseRoute("#/studio"),
+      parseRoute("#/field-test"),
       parseRoute(`#/drop/${A}`),
       parseRoute(`#/audit/${A}`),
       parseRoute(`#/verify/${A}/${B}`),
     ];
-    expect(routes.map((r) => r.name)).toEqual(["home", "vault", "bazaar", "studio", "drop", "audit", "verify"]);
+    expect(routes.map((r) => r.name)).toEqual(["home", "vault", "bazaar", "studio", "fieldTest", "drop", "audit", "verify"]);
     for (const r of routes) expect(parseRoute(hrefFor(r))).toEqual(r);
   });
 
@@ -146,6 +147,7 @@ describe("drop view", () => {
   it("labels rarity shares and the trust record", () => {
     expect(topLabel(0, fakeDrop())).toBe("Top 10%");
     expect(topLabel(2, fakeDrop())).toBe("Top 30%");
+    expect(topLabel(4, fakeDrop())).toBe("Base tier");
     expect(trustRecord(fakeDrop({ openedCount: 9n, refundedCount: 1n })).onTimeRate).toBeCloseTo(0.9);
     expect(trustRecord(fakeDrop({ openedCount: 0n })).onTimeRate).toBeNull();
   });
