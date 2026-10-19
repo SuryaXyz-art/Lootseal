@@ -15,6 +15,8 @@ A fairness layer for loot boxes, gacha pulls and NFT mystery mints, built on [Mi
 [![Field test](https://img.shields.io/badge/field%20test-102%2F102%20checks-34d399)](#field-test-lootseal-used-for-real-on-preview)
 [![License](https://img.shields.io/badge/license-Apache--2.0-f6c453)](LICENSE)
 
+### [▶ Live app: lootseal.vercel.app](https://lootseal.vercel.app)
+
 [How it works](#how-it-works) · [App tour](#app-tour) · [Field test](#field-test-lootseal-used-for-real-on-preview) · [Architecture](#architecture) · [Try it](#try-it-in-5-steps) · [Run locally](#run-locally)
 
 </div>
@@ -207,7 +209,7 @@ Genesis Relics is live: 1,000 boxes at 5 NIGHT, with odds of 1% Legendary, 4% Ep
 
 1. Install [Lace](https://www.lace.io) with Midnight and switch it to **Preview**.
 2. Fund the wallet from the [Preview faucet](https://midnight-tmnight-preview.nethermind.dev/). In Lace, designate the NIGHT for DUST and wait a few minutes.
-3. Open the web app, click **Connect wallet**, and choose a passphrase for your encrypted vault.
+3. Open the web app at **[lootseal.vercel.app](https://lootseal.vercel.app)**, click **Connect wallet**, and choose a passphrase for your encrypted vault.
 4. Open **Genesis Relics** and click **Open a box**. When the publisher's proof lands, the reveal plays and the item appears in your **Vault**.
 5. In the Vault, **Prove rarity** and follow the `/verify` link, **List** the item on the **Bazaar**, or launch your own drop in the **Studio**. The **Audit** page shows every guarantee.
 

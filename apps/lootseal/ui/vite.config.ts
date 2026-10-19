@@ -3,7 +3,6 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 // Vite is pinned to 6.4.3 in package.json on purpose: it matches the Vite that
@@ -25,9 +24,12 @@ export default defineConfig(({ mode }) => ({
     react(),
     tailwindcss(),
     // The ledger / onchain-runtime packages ship WebAssembly and load it with
-    // top-level await, so both plugins are required in the browser.
+    // top-level await. The build targets esnext, where browsers run top-level
+    // await natively, so vite-plugin-top-level-await is not used: its rewrite
+    // of `class X {}` into `X = class {}` breaks classes whose static fields
+    // refer to the class itself (the wallet SDK's address codecs), and the
+    // production bundle died on load with "reading 'codec'".
     wasm(),
-    topLevelAwait(),
     // Parts of the Midnight SDK still reach for Node globals (Buffer, process)
     // and core modules. Polyfill them and expose the globals, otherwise the
     // page dies with "Buffer is not defined" the first time a tx is built.
